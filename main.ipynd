@@ -1,0 +1,81 @@
+from google.colab import files
+import PyPDF2
+import openai
+import os
+
+# Set your OpenAI API key here
+openai.api_key = 'YOUR_OPENAI_API_KEY'
+
+def upload_and_read_pdf():
+    while True:
+        try:
+            # Prompt the user to upload a file
+            uploaded_file = files.upload()
+
+            # Get the filename of the uploaded file
+            filename = next(iter(uploaded_file))
+
+            # Check if the uploaded file is a PDF
+            if not filename.lower().endswith('.pdf'):
+                raise ValueError("The uploaded file is not a PDF. Please upload a PDF file.")
+
+            # Read the PDF file
+            with open(filename, 'rb') as pdf_file:
+                pdf_reader = PyPDF2.PdfReader(pdf_file)
+
+                # Get the number of pages in the PDF
+                num_pages = len(pdf_reader.pages)
+
+                # Extract text from each page and collect it
+                pdf_content = ""
+                for page_num in range(num_pages):
+                    page = pdf_reader.pages[page_num]
+                    page_text = page.extract_text()
+                    pdf_content += page_text + "\n"
+
+            # If everything is successful, break the loop
+            break
+
+        except ValueError as ve:
+            print(f"ValueError: {ve}")
+            print("Please try again.")
+        except PyPDF2.errors.PdfReadError as pre:
+            print(f"PdfReadError: {pre}")
+            print("There was an issue reading the PDF file. Please try again.")
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+            print("Please try again.")
+
+    return pdf_content
+
+def summarize_text(text):
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": f"Summarize the following text into 100 words and provide the citation in APA 7th edition format:\n\n{text}"}
+            ],
+            max_tokens=150,
+            temperature=0.5,
+        )
+
+        summary = response['choices'][0]['message']['content'].strip()
+        return summary
+
+    except Exception as e:
+        print(f"An error occurred while communicating with OpenAI: {e}")
+        return None
+
+if __name__ == "__main__":
+    pdf_content = upload_and_read_pdf()
+    if pdf_content:
+        print("PDF content successfully read.")
+        summary = summarize_text(pdf_content)
+        if summary:
+            print("Summary and Citation:")
+            print(summary)
+        else:
+            print("Failed to summarize the PDF content.")
+    else:
+        print("No PDF content to process.")
